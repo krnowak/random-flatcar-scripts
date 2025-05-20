@@ -71,6 +71,11 @@ version_id=${1}; shift
 build_id=${1}; shift
 dir=${1}; shift
 
+if [[ ${#} -gt 0 ]]; then
+    echo "Too many positional parameters: ${*@Q}" >&2
+    exit 1
+fi
+
 version="${version_id}${build_id:++}${build_id}"
 
 url="https://bincache.flatcar-linux.net/testing/${version}/${arch}/${platform}/_kola_temp"
@@ -78,10 +83,17 @@ url="https://bincache.flatcar-linux.net/testing/${version}/${arch}/${platform}/_
 rubbish="${dir}/.rubbish"
 mkdir -p "${rubbish}"
 
+a_href_dot_slash_urls() {
+    # sed command: drop all lines not matching `a href="./${name}/"`,
+    # extract name from url (dequoting and dropping leading `./` and
+    # trailing `/`)
+    sed -e '/a href="\.\/[^"]*\/"/ ! d; s#^.*<a href="\./\([^"]*\)/".*$#\1#' "${@}"
+}
+
 l1="${rubbish}/kola_tmp_listing"
 wget -O "${l1}" "${url}/"
 runs=()
-mapfile -t runs < <(grep -e 'a href="./[^-]*-[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}-[0-9]\{4\}-' "${l1}" | grep -o '[^./-]*-[0-9-]\+')
+mapfile -t runs < <(a_href_dot_slash_urls "${l1}" | grep -e '-[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}-[0-9]\{4\}-[0-9]*$')
 
 tests=()
 
@@ -94,7 +106,7 @@ wget --input-file="${ftd1}" --directory-prefix="${rubbish}/run-listings" --force
 run_tests=()
 for run in "${runs[@]}"; do
     l2="${rubbish}/run-listings/${run}/index.html"
-    mapfile -t tests < <(grep 'a href="./[^"]*/">' "${l2}" | sed -e 's#^.*a href="\./##' -e 's#/">$##' | grep "${filter}")
+    mapfile -t tests < <(a_href_dot_slash_urls "${l2}" | grep -v -F -x -e 'reports' | grep -e "${filter}")
     run_tests+=( "${tests[@]/#/${run}/}" )
 done
 ftd2="${ftdb}-l2"
@@ -105,7 +117,7 @@ wget --input-file="${ftd2}" --directory-prefix="${rubbish}/run-test-listings" --
 run_test_machines=()
 for run_test in "${run_tests[@]}"; do
     l3="${rubbish}/run-test-listings/${run_test}/index.html"
-    mapfile -t machines < <(grep 'a href="./' "${l3}" | grep -o '[a-z0-9-]\{36\}')
+    mapfile -t machines < <(a_href_dot_slash_urls "${l3}")
     run_test_machines+=( "${machines[@]/#/${run_test}/}" )
 done
 
@@ -113,7 +125,6 @@ ftd3="${ftdb}-l3"
 truncate --size=0 "${ftd3}"
 for run_test_machine in "${run_test_machines[@]}"; do
     pref_suf "${url}/${run_test_machine}/" '' "${logs_arr[@]}" >>"${ftd3}"
-    prefix="${url}/${run_test_machine}/"
 done
 
 wget --input-file="${ftd3}" --directory-prefix="${dir}" --force-directories --no-host-directories --cut-dirs=5

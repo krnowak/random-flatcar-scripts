@@ -14,8 +14,8 @@ to_sunday = datetime.timedelta(days=6)
 to_next_week = datetime.timedelta(days=7)
 week_idx=1
 
-if monday.weekday() != 1:
-    # move to closest monday
+if monday.weekday() != 0:
+    # move to closest next monday
     monday += datetime.timedelta(days=7-monday.weekday())
 
 while monday.year == year_num:

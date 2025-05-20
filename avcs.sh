@@ -1,18 +1,48 @@
 #!/bin/bash
 
+##
+## avcs.sh [-a <TIMESTAMP>] <DIRECTORY>
+##
+## Searches for AVC denial reports in logs inside the passed
+## directory. The passed directory should have subdirectories in form
+## of <prefix>-<timestamp>. If timestamp is passed with the `-a`
+## option, the script will process only subdirectories with timestamps
+## after the passed one.
+##
+## The printed lines are in form of regexes that could be pasted
+## verbatim as a `grep` expression to search for files where this
+## report was printed.
+##
+## Flags:
+##
+## -a <TIMESTAMP> - timestamp, in form of yyyy-mm-dd-hhmm-ss
+## -h - print this help
+##
+## Positional parameters:
+##
+## 0 - directory
+##
+
 set -euo pipefail
 
-#after='2023-11-30-1401-66'
+#after='2023-11-30-1401-06'
 after='0000-00-00-0000-00'
+print_help=''
 
 while [[ ${#} -gt 0 ]]; do
     case ${1} in
         -a) after=${2}; shift 2;;
+        -h) print_help=x; shift;;
         --) shift; break;;
         -*) echo "unknown flag ${1}" >&2; exit 1;;
         *) break;;
     esac
 done
+
+if [[ -n ${print_help} ]]; then
+    grep '^##' "${0}" | sed -e 's/^##[[:space:]]*//'
+    exit 0
+fi
 
 mapfile -t after_fields <<<"${after//-/$'\n'}"
 if [[ ${#after_fields[@]} -ne 5 ]]; then
